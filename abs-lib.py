@@ -31,7 +31,7 @@ class InconsistencyChecker:
 class QuantInconsistencyChecker(InconsistencyChecker):
     def isInconsistent(self, knowledgePattern):
         size = knowledgePattern.getSize()
-        QuantMatrix(MatrixProducer.getQuantMatrix(size))
+        QuantMatrix = MatrixProducer.getQuantMatrix(size)
         IntervalsArray = knowledgePattern.getArray()
         if LinearProgrammingProblemSolver.getSolution(QuantMatrix, IntervalsArray, size).getResult() == False:
             return InconsistencyResult(False, [])
@@ -57,7 +57,6 @@ class DisjunctInconsistencyChecker(InconsistencyChecker):
 
 class MatrixProducer:
     def getDisjuncttoQuantMatrix(self, size): ### возвращает элемент класса диаграмма
-        #size = math.log(DisjunctKnowledgePatternItem.getSize(), 2)
         return np.linalg.inv(self.getQuanttoDisjunctMatrix(math.log(size, 2)))
 
     def getQuanttoDisjunctMatrix(self, n):            #self?
@@ -79,18 +78,18 @@ class MatrixProducer:
             return np.array([[1, -1], [0, 1]], dtype=np.double)
         else:
             I = self.getConjucttoQuantMatrix(n-1)          #???
-            O = np.zeroes((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
+            O = np.zeros((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
             return np.block([[I, (-1)*I], [O, I]])
 
     def getQuantMatrix(self, size):
-        return np.eyes((size, size), dtype=np.double)
+        return np.eye(size, dtype=np.double)
 
 
 
 
 class LinearProgrammingProblemSolver:
-    def getSolution(self, matrix, array, size):
-        A = np.vstack(((-1) * matrix, (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
+    def getSolution(self, matrixs, array, size):
+        A = np.vstack(((-1) * matrixs, (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
         A = matrix(A)
         B = np.hstack((np.zeros(size, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
         B = matrix(B)
@@ -106,21 +105,20 @@ class LinearProgrammingProblemSolver:
                 flagNone = 1
                 resultArray = []                                      
                 break
-            resultArray[i][0] = sol['x']                              # тут надо делать копию или оставлять прежним?
+            resultArray[i][0] = round(sol['x'][i], 3)                              # тут надо делать копию или оставлять прежним?
             c[i] = -1
             sol = solvers.lp(c, A, B)
             if sol['x'] is None:
                 flagNone = 1
                 break
-            resultArray[i][1] = sol['x']
+            resultArray[i][1] = round(sol['x'][i], 3)
             c[i] = 0
-
         return InconsistencyResult(not(flagNone), resultArray)
 
     def getNormalizedSolution(self, array, size):
-        A = np.vstack((-1) * np.ones(size, dtype=np.double), np.ones(size, dtype=np.double))
+        A = np.vstack(((-1) * np.ones(size, dtype=np.double), np.ones(size, dtype=np.double), (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
         A = matrix(A)
-        B = np.hstack((-1) * np.ones(1, dtype=np.double), np.ones(1, dtype=np.double))
+        B = np.hstack(((-1) * np.ones(1, dtype=np.double), np.ones(1, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
         B = matrix(B)
         c = np.array(np.zeros(size, dtype=np.double))
         c = matrix(c)
@@ -133,13 +131,13 @@ class LinearProgrammingProblemSolver:
                 flagNone = 1
                 resultArray = []
                 break
-            resultArray[i][0] = sol['x']  # тут надо делать копию?
+            resultArray[i][0] = round(sol['x'][i], 3)  # тут надо делать копию?
             c[i] = -1
             sol = solvers.lp(c, A, B)
             if sol['x'] is None:
                 flagNone = 1
                 break
-            resultArray[i][1] = sol['x']
+            resultArray[i][1] = round(sol['x'][i], 3)
             c[i] = 0
         return InconsistencyResult(not(flagNone), resultArray)
 
@@ -196,6 +194,19 @@ class QuantKnowledgePatternItem(KnowledgePatternItem):
 
 
 class DisjunctKnowledgePatternItem(KnowledgePatternItem):
+    def getType(self):
+        return self.type
+
+    def getElement(self, index):
+        return self.arr[index]
+
+    def getArray(self):
+        return self.arr
+
+    def getSize(self):
+        return len(self.arr)
+
+class ConjuctKnowledgePatternItem(KnowledgePatternItem):
     def getType(self):
         return self.type
 
