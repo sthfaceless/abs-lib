@@ -9,7 +9,7 @@ class KnowledgePatternManager:
             .isInconsistent(knowledgePattern)                                # он возвращает резульат метода класса QuantInconsistencyChecker
 
     def __getInconsistencyChecker(self, type):                               # этому методу нужен тип как объект класса, возварщает он объект указанного класса
-        if type == KnowledgePatternType.QUANT:                               # KnowledgePattern охарактеризовывается типом, все ок, то есть type, это та самая штука охарактеризовывающая
+        if type == KnowledgePatternType.QUANTS:                               # KnowledgePattern охарактеризовывается типом, все ок, то есть type, это та самая штука охарактеризовывающая
             return QuantInconsistencyChecker()
         elif type == KnowledgePatternType.DISJUNCTS:
             return DisjunctInconsistencyChecker()
@@ -30,7 +30,15 @@ class InconsistencyChecker:
 
 class QuantInconsistencyChecker(InconsistencyChecker):
     def isInconsistent(self, knowledgePattern):
-        return knowledgePattern != 'lol'
+        size = knowledgePattern.getSize()
+        QuantMatrix(MatrixProducer.getQuantMatrix(size))
+        IntervalsArray = knowledgePattern.getArray()
+        if LinearProgrammingProblemSolver.getSolution(QuantMatrix, IntervalsArray, size).getResult() == False:
+            return InconsistencyResult(False, [])
+        else:
+            array = LinearProgrammingProblemSolver.getSolution(QuantMatrix, IntervalsArray, size).getArray()
+            return LinearProgrammingProblemSolver.getNormalizedSolution(array, size)
+
 
 class ConjuctInconsistencyChecker(InconsistencyChecker):
     def isInconsistent(self, knowledgePattern):
@@ -74,6 +82,9 @@ class MatrixProducer:
             O = np.zeroes((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
             return np.block([[I, (-1)*I], [O, I]])
 
+    def getQuantMatrix(self, size):
+        return np.eyes((size, size), dtype=np.double)
+
 
 
 
@@ -95,7 +106,7 @@ class LinearProgrammingProblemSolver:
                 flagNone = 1
                 resultArray = []                                      
                 break
-            resultArray[i][0] = sol['x']                              # тут надо делать копию?
+            resultArray[i][0] = sol['x']                              # тут надо делать копию или оставлять прежним?
             c[i] = -1
             sol = solvers.lp(c, A, B)
             if sol['x'] is None:
@@ -106,6 +117,35 @@ class LinearProgrammingProblemSolver:
 
         return InconsistencyResult(not(flagNone), resultArray)
 
+    def getNormalizedSolution(self, array, size):
+        A = np.vstack((-1) * np.ones(size, dtype=np.double), np.ones(size, dtype=np.double))
+        A = matrix(A)
+        B = np.hstack((-1) * np.ones(1, dtype=np.double), np.ones(1, dtype=np.double))
+        B = matrix(B)
+        c = np.array(np.zeros(size, dtype=np.double))
+        c = matrix(c)
+        flagNone = 0
+        resultArray = array.copy()
+        for i in range(size):
+            c[i] = 1
+            sol = solvers.lp(c, A, B)
+            if sol['x'] is None:
+                flagNone = 1
+                resultArray = []
+                break
+            resultArray[i][0] = sol['x']  # тут надо делать копию?
+            c[i] = -1
+            sol = solvers.lp(c, A, B)
+            if sol['x'] is None:
+                flagNone = 1
+                break
+            resultArray[i][1] = sol['x']
+            c[i] = 0
+        return InconsistencyResult(not(flagNone), resultArray)
+
+
+
+
 class InconsistencyResult:
 
     def __init__(self, verdict, arr):
@@ -113,12 +153,14 @@ class InconsistencyResult:
         self.arr = arr
 
     def getArray(self):
-        return self.arr
+        if verdict == True:
+            return self.arr
+        else:
+            raise AttributeError
+
 
     def getResult(self):
         return self.verdict
-
-
 
 
 
