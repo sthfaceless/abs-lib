@@ -6,10 +6,10 @@ from cvxopt import matrix, solvers
 
 class KnowledgePatternManager:
     def checkInconsistency(self, knowledgePattern):
-        return self.__getInconsistencyChecker(knowledgePattern.getType()) \
+        return self.__getInconsistencyChecker(knowledgePattern.type) \
             .isInconsistent(knowledgePattern)
 
-    def __getInconsistencyChecker(self, type):  # его я не трогаю.
+    def __getInconsistencyChecker(self, type):
         if type == KnowledgePatternType.QUANTS:
             return QuantInconsistencyChecker()
         elif type == KnowledgePatternType.DISJUNCTS:
@@ -17,7 +17,7 @@ class KnowledgePatternManager:
         elif type == KnowledgePatternType.CONJUNCTS:
             return ConjunctInconsistencyChecker()
         else:
-            raise TypeError("Incorrect type of knowledge pattern")  # ???
+            raise TypeError("Incorrect type of knowledge pattern")
 
 
 class KnowledgePatternType(Enum):
@@ -27,7 +27,7 @@ class KnowledgePatternType(Enum):
 
 
 class InconsistencyChecker:
-    @staticmethod                             #нужен ли
+    @staticmethod
     def isInconsistent(knowledgePattern):
         raise NotImplementedError("It's a method of abstract class, use appropriate implementation")
 
@@ -38,7 +38,7 @@ class QuantInconsistencyChecker(InconsistencyChecker):
         size = knowledgePattern.size
         quantMatrix = MatrixProducer.getIdentityMatrix(size)
         intervalsArray = knowledgePattern.array
-        if LinearProgrammingProblemSolver.findOptimalValues(quantMatrix, intervalsArray,size).isInconsistent == False:  # тут не то мб
+        if LinearProgrammingProblemSolver.findOptimalValues(quantMatrix, intervalsArray,size).isInconsistent == False:
             return InconsistencyResult(False, [])
         else:
             array = LinearProgrammingProblemSolver.findOptimalValues(quantMatrix, intervalsArray, size).array
@@ -49,7 +49,7 @@ class ConjunctInconsistencyChecker(InconsistencyChecker):
     @staticmethod
     def isInconsistent(knowledgePattern):
         size = knowledgePattern.size
-        conjunctMatrix = MatrixProducer.getConjunctToQuantMatrix(size)
+        conjunctMatrix = MatrixProducer.getConjunctToQuantMatrix(int(math.log(size, 2)))
         intervalsArray = knowledgePattern.array
         return LinearProgrammingProblemSolver.findOptimalValues(conjunctMatrix, intervalsArray, size)
 
@@ -59,14 +59,14 @@ class DisjunctInconsistencyChecker(InconsistencyChecker):
     def isInconsistent(knowledgePattern):
         size = knowledgePattern.size
         disjunctMatrix = MatrixProducer.getDisjunctToQuantMatrix(size)
-        intervalsArray = knowledgePattern.array()
+        intervalsArray = knowledgePattern.array
         return LinearProgrammingProblemSolver.findOptimalValues(disjunctMatrix, intervalsArray, size)
 
 
 class MatrixProducer:
     @staticmethod
     def getDisjunctToQuantMatrix(size):
-        return np.linalg.inv(MatrixProducer.getQuantToDisjunctMatrix(math.log(size, 2)))
+        return np.linalg.inv(MatrixProducer.getQuantToDisjunctMatrix(int(math.log(size, 2))))
 
     @staticmethod
     def getQuantToDisjunctMatrix(n):
@@ -113,14 +113,14 @@ class LinearProgrammingProblemSolver:
         for i in range(size):
             c[i] = 1
             sol = solvers.lp(c, a, b)
-            if sol['status'] == 'Optimal':  # неуверенность
+            if sol['status'] != 'optimal':
                 valid = False
                 resultArray = []
                 break
             resultArray[i][0] = round(sol['x'][i], 3)
             c[i] = -1
             sol = solvers.lp(c, a, b)
-            if sol['status'] == 'Optimal':
+            if sol['status'] != 'optimal':
                 valid = False
                 resultArray = []
                 break
@@ -133,8 +133,7 @@ class LinearProgrammingProblemSolver:
         a = np.vstack(((-1) * np.ones(size, dtype=np.double), np.ones(size, dtype=np.double),
                        (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
         a = matrix(a)
-        b = np.hstack(
-            ((-1) * np.ones(1, dtype=np.double), np.ones(1, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
+        b = np.hstack(((-1) * np.ones(1, dtype=np.double), np.ones(1, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
         b = matrix(b)
         c = np.array(np.zeros(size, dtype=np.double))
         c = matrix(c)
@@ -143,14 +142,14 @@ class LinearProgrammingProblemSolver:
         for i in range(size):
             c[i] = 1
             sol = solvers.lp(c, a, b)
-            if sol['status'] == 'Optimal':
+            if sol['status'] != 'optimal':
                 valid = False
                 resultArray = []
                 break
             resultArray[i][0] = round(sol['x'][i], 3)
             c[i] = -1
             sol = solvers.lp(c, a, b)
-            if sol['status'] == 'Optimal':
+            if sol['status'] != 'optimal':
                 valid = False
                 resultArray = []
                 break
@@ -164,7 +163,7 @@ class InconsistencyResult:  # &&&??
         self.inconsistent = inconsistent
         self.arr = arr
 
-    @property                            #неясно
+    @property
     def array(self):
         if self.inconsistent != True:
             raise AttributeError('There is no have array, because knowledge pattern is inconsistency')
@@ -177,8 +176,8 @@ class InconsistencyResult:  # &&&??
 
 
 class KnowledgePatternItem:
-    def __init__(self, arr, type):
-        self.type = type
+    def __init__(self, arr, c_type):
+        self._type = c_type
         self.arr = arr
 
     @property
@@ -201,7 +200,7 @@ class QuantKnowledgePatternItem(KnowledgePatternItem):
 
     @property
     def type(self):
-        return self.type
+        return self._type
 
     def getElement(self, index):
         return self.arr[index]
@@ -218,7 +217,7 @@ class QuantKnowledgePatternItem(KnowledgePatternItem):
 class DisjunctKnowledgePatternItem(KnowledgePatternItem):
     @property
     def type(self):
-        return self.type
+        return self._type
 
     def getElement(self, index):
         return self.arr[index]
@@ -235,7 +234,7 @@ class DisjunctKnowledgePatternItem(KnowledgePatternItem):
 class ConjunctKnowledgePatternItem(KnowledgePatternItem):
     @property
     def type(self):
-        return self.type
+        return self._type
 
     def getElement(self, index):
         return self.arr[index]
@@ -247,5 +246,6 @@ class ConjunctKnowledgePatternItem(KnowledgePatternItem):
     @property
     def size(self):
         return len(self.arr)
+
 
 
