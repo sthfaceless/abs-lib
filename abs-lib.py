@@ -1,165 +1,179 @@
 from enum import Enum
 import numpy as np
 import math
-from cvxopt import matrix, solvers # переменные с маленькой буквы -> ссылки на обьекты
+from cvxopt import matrix, solvers
+
 
 class KnowledgePatternManager:
-    def checkInconsistency(self, knowledgePattern):                          #у этого объекта есть метод, который получает объект KnowledgePatternItem
+    def checkInconsistency(self, knowledgePattern):
         return self.__getInconsistencyChecker(knowledgePattern.getType()) \
-            .isInconsistent(knowledgePattern)                                # он возвращает резульат метода класса QuantInconsistencyChecker
+            .isInconsistent(knowledgePattern)
 
-    def __getInconsistencyChecker(self, type):                               # этому методу нужен тип как объект класса, возварщает он объект указанного класса
-        if type == KnowledgePatternType.QUANTS:                               # KnowledgePattern охарактеризовывается типом, все ок, то есть type, это та самая штука охарактеризовывающая
+    def __getInconsistencyChecker(self, type):  # его я не трогаю.
+        if type == KnowledgePatternType.QUANTS:
             return QuantInconsistencyChecker()
         elif type == KnowledgePatternType.DISJUNCTS:
             return DisjunctInconsistencyChecker()
+        elif type == KnowledgePatternType.CONJUNCTS:
+            return ConjunctInconsistencyChecker()
         else:
-            return ConjuctInconsistencyChecker()
+            raise TypeError("Incorrect type of knowledge pattern")  # ???
 
 
 class KnowledgePatternType(Enum):
     QUANTS = 'quants',
     DISJUNCTS = 'disjuncts',
-    CONJUCTS = 'conjucts'
+    CONJUNCTS = 'conjuncts'
 
 
 class InconsistencyChecker:
-    def isInconsistent(self, knowledgePattern):
+    @staticmethod                             #нужен ли
+    def isInconsistent(knowledgePattern):
         raise NotImplementedError("It's a method of abstract class, use appropriate implementation")
 
 
 class QuantInconsistencyChecker(InconsistencyChecker):
-    def isInconsistent(self, knowledgePattern):
-        size = knowledgePattern.getSize()
-        QuantMatrix = MatrixProducer.getQuantMatrix(size)
-        IntervalsArray = knowledgePattern.getArray()
-        if LinearProgrammingProblemSolver.getSolution(QuantMatrix, IntervalsArray, size).getResult() == False:
+    @staticmethod
+    def isInconsistent(knowledgePattern):
+        size = knowledgePattern.size
+        quantMatrix = MatrixProducer.getIdentityMatrix(size)
+        intervalsArray = knowledgePattern.array
+        if LinearProgrammingProblemSolver.findOptimalValues(quantMatrix, intervalsArray,size).isInconsistent == False:  # тут не то мб
             return InconsistencyResult(False, [])
         else:
-            array = LinearProgrammingProblemSolver.getSolution(QuantMatrix, IntervalsArray, size).getArray()
-            return LinearProgrammingProblemSolver.getNormalizedSolution(array, size)
+            array = LinearProgrammingProblemSolver.findOptimalValues(quantMatrix, intervalsArray, size).array
+            return LinearProgrammingProblemSolver.findNormalizedOptimalValues(array, size)
 
 
-class ConjuctInconsistencyChecker(InconsistencyChecker):
-    def isInconsistent(self, knowledgePattern):
-        size = knowledgePattern.getSize()
-        ConjuctMatrix = MatrixProducer.getConjucttoQuantMatrix(size) # что с ним?
-        IntervalsArray = knowledgePattern.getArray()
-        return LinearProgrammingProblemSolver.getSolution(ConjuctMatrix, IntervalsArray, size)
+class ConjunctInconsistencyChecker(InconsistencyChecker):
+    @staticmethod
+    def isInconsistent(knowledgePattern):
+        size = knowledgePattern.size
+        conjunctMatrix = MatrixProducer.getConjunctToQuantMatrix(size)
+        intervalsArray = knowledgePattern.array
+        return LinearProgrammingProblemSolver.findOptimalValues(conjunctMatrix, intervalsArray, size)
 
 
 class DisjunctInconsistencyChecker(InconsistencyChecker):
-    def isInconsistent(self, knowledgePattern):         # тут должна быть дизъюнктная штука слышешьб
-        size = knowledgePattern.getSize()
-        DisjunctMatrix = MatrixProducer.getDisjuncttoQuantMatrix(size)  #что с ним?
-        IntervalsArray = knowledgePattern.getArray()
-        return LinearProgrammingProblemSolver.getSolution(DisjunctMatrix, IntervalsArray, size)
+    @staticmethod
+    def isInconsistent(knowledgePattern):
+        size = knowledgePattern.size
+        disjunctMatrix = MatrixProducer.getDisjunctToQuantMatrix(size)
+        intervalsArray = knowledgePattern.array()
+        return LinearProgrammingProblemSolver.findOptimalValues(disjunctMatrix, intervalsArray, size)
+
 
 class MatrixProducer:
-    def getDisjuncttoQuantMatrix(self, size): ### возвращает элемент класса диаграмма
-        return np.linalg.inv(self.getQuanttoDisjunctMatrix(math.log(size, 2)))
+    @staticmethod
+    def getDisjunctToQuantMatrix(size):
+        return np.linalg.inv(MatrixProducer.getQuantToDisjunctMatrix(math.log(size, 2)))
 
-    def getQuanttoDisjunctMatrix(self, n):            #self?
+    @staticmethod
+    def getQuantToDisjunctMatrix(n):
         if n == 0:
             return np.array([1], dtype=np.double)
         elif n == 1:
             return np.array([[1, 1], [0, 1]], dtype=np.double)
         else:
-            K = self.getQuanttoDisjunctMatrix(n-1)          #???
-            I = np.ones((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
-            K_o = K.copy()
-            K_o[0] = [0] * 2 ** (n - 1)
-            return np.block([[K, K], [K_o, I]])
+            k = MatrixProducer.getQuantToDisjunctMatrix(n - 1)
+            i = np.ones((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
+            k_o = k.copy()
+            k_o[0] = [0] * 2 ** (n - 1)
+            return np.block([[k, k], [k_o, i]])
 
-    def getConjucttoQuantMatrix(self, n):
+    @staticmethod
+    def getConjunctToQuantMatrix(n):
         if n == 0:
             return np.array([1], dtype=np.double)
         elif n == 1:
             return np.array([[1, -1], [0, 1]], dtype=np.double)
         else:
-            I = self.getConjucttoQuantMatrix(n-1)          #???
-            O = np.zeros((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
-            return np.block([[I, (-1)*I], [O, I]])
+            i = MatrixProducer.getConjunctToQuantMatrix(n - 1)
+            o = np.zeros((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
+            return np.block([[i, (-1) * i], [o, i]])
 
-    def getQuantMatrix(self, size):
+    @staticmethod
+    def getIdentityMatrix(size):
         return np.eye(size, dtype=np.double)
 
 
-
-
 class LinearProgrammingProblemSolver:
-    def getSolution(self, matrixs, array, size):
-        A = np.vstack(((-1) * matrixs, (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
-        A = matrix(A)
-        B = np.hstack((np.zeros(size, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
-        B = matrix(B)
+
+    @staticmethod
+    def findOptimalValues(matrixs, array, size):
+        a = np.vstack(((-1) * matrixs, (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
+        a = matrix(a)
+        b = np.hstack((np.zeros(size, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
+        b = matrix(b)
         c = np.array(np.zeros(size, dtype=np.double))
         c = matrix(c)
         solvers.options['show_progress'] = False
-        flagNone = 0
+        valid = True
         resultArray = array.copy()
         for i in range(size):
             c[i] = 1
-            sol = solvers.lp(c, A, B)
-            if sol['x'] is None:
-                flagNone = 1
-                resultArray = []                                      
-                break
-            resultArray[i][0] = round(sol['x'][i], 3)                              # тут надо делать копию или оставлять прежним?
-            c[i] = -1
-            sol = solvers.lp(c, A, B)
-            if sol['x'] is None:
-                flagNone = 1
-                break
-            resultArray[i][1] = round(sol['x'][i], 3)
-            c[i] = 0
-        return InconsistencyResult(not(flagNone), resultArray)
-
-    def getNormalizedSolution(self, array, size):
-        A = np.vstack(((-1) * np.ones(size, dtype=np.double), np.ones(size, dtype=np.double), (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
-        A = matrix(A)
-        B = np.hstack(((-1) * np.ones(1, dtype=np.double), np.ones(1, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
-        B = matrix(B)
-        c = np.array(np.zeros(size, dtype=np.double))
-        c = matrix(c)
-        flagNone = 0
-        resultArray = array.copy()
-        for i in range(size):
-            c[i] = 1
-            sol = solvers.lp(c, A, B)
-            if sol['x'] is None:
-                flagNone = 1
+            sol = solvers.lp(c, a, b)
+            if sol['status'] == 'Optimal':  # неуверенность
+                valid = False
                 resultArray = []
                 break
-            resultArray[i][0] = round(sol['x'][i], 3)  # тут надо делать копию?
+            resultArray[i][0] = round(sol['x'][i], 3)
             c[i] = -1
-            sol = solvers.lp(c, A, B)
-            if sol['x'] is None:
-                flagNone = 1
+            sol = solvers.lp(c, a, b)
+            if sol['status'] == 'Optimal':
+                valid = False
+                resultArray = []
                 break
             resultArray[i][1] = round(sol['x'][i], 3)
             c[i] = 0
-        return InconsistencyResult(not(flagNone), resultArray)
+        return InconsistencyResult(valid, resultArray)
+
+    @staticmethod
+    def findNormalizedOptimalValues(array, size):
+        a = np.vstack(((-1) * np.ones(size, dtype=np.double), np.ones(size, dtype=np.double),
+                       (-1) * np.eye(size, dtype=np.double), np.eye(size, dtype=np.double)))
+        a = matrix(a)
+        b = np.hstack(
+            ((-1) * np.ones(1, dtype=np.double), np.ones(1, dtype=np.double), (-1) * array[:, 0], array[:, 1]))
+        b = matrix(b)
+        c = np.array(np.zeros(size, dtype=np.double))
+        c = matrix(c)
+        valid = True
+        resultArray = array.copy()
+        for i in range(size):
+            c[i] = 1
+            sol = solvers.lp(c, a, b)
+            if sol['status'] == 'Optimal':
+                valid = False
+                resultArray = []
+                break
+            resultArray[i][0] = round(sol['x'][i], 3)
+            c[i] = -1
+            sol = solvers.lp(c, a, b)
+            if sol['status'] == 'Optimal':
+                valid = False
+                resultArray = []
+                break
+            resultArray[i][1] = round(sol['x'][i], 3)
+            c[i] = 0
+        return InconsistencyResult(valid, resultArray)
 
 
-
-
-class InconsistencyResult:
-
-    def __init__(self, verdict, arr):
-        self.verdict = verdict
+class InconsistencyResult:  # &&&??
+    def __init__(self, inconsistent, arr):
+        self.inconsistent = inconsistent
         self.arr = arr
 
-    def getArray(self):
-        if verdict == True:
-            return self.arr
+    @property                            #неясно
+    def array(self):
+        if self.inconsistent != True:
+            raise AttributeError('There is no have array, because knowledge pattern is inconsistency')
         else:
-            raise AttributeError
+            return self.arr
 
-
-    def getResult(self):
-        return self.verdict
-
+    @property
+    def isInconsistent(self):
+        return self.inconsistent
 
 
 class KnowledgePatternItem:
@@ -167,55 +181,71 @@ class KnowledgePatternItem:
         self.type = type
         self.arr = arr
 
-    def getType(self):
+    @property
+    def type(self):
         raise NotImplementedError("It's a method of abstract class, use appropriate implementation")
 
     def getElement(self, index):
         raise NotImplementedError("It's a method of abstract class, use appropriate implementation")
 
-    def getArray(self):
+    @property
+    def array(self):
         return NotImplementedError("It's a method of abstract class, use appropriate implementation")
 
-    def getSize(self):
+    @property
+    def size(self):
         return NotImplementedError("It's a method of abstract class, use appropriate implementation")
+
 
 class QuantKnowledgePatternItem(KnowledgePatternItem):
-    def getType(self):
+
+    @property
+    def type(self):
         return self.type
 
     def getElement(self, index):
         return self.arr[index]
 
-    def getArray(self):
+    @property
+    def array(self):
         return self.arr
 
-    def getSize(self):
+    @property
+    def size(self):
         return len(self.arr)
 
 
 class DisjunctKnowledgePatternItem(KnowledgePatternItem):
-    def getType(self):
+    @property
+    def type(self):
         return self.type
 
     def getElement(self, index):
         return self.arr[index]
 
-    def getArray(self):
+    @property
+    def array(self):
         return self.arr
 
-    def getSize(self):
+    @property
+    def size(self):
         return len(self.arr)
 
-class ConjuctKnowledgePatternItem(KnowledgePatternItem):
-    def getType(self):
+
+class ConjunctKnowledgePatternItem(KnowledgePatternItem):
+    @property
+    def type(self):
         return self.type
 
     def getElement(self, index):
         return self.arr[index]
 
-    def getArray(self):
+    @property
+    def array(self):
         return self.arr
 
-    def getSize(self):
+    @property
+    def size(self):
         return len(self.arr)
+
 
