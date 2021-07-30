@@ -42,8 +42,8 @@ class QuantInconsistencyChecker(InconsistencyChecker):
         matrix = MatrixProducer.getIdentityMatrix(size)
         intervals = knowledgePattern.array
         result = LinearProgrammingProblemSolver.findOptimalValues(matrix, intervals, size)
-        if result.insoncisent:
-            result = LinearProgrammingProblemSolver.findNormalizedOptimalValues(intervals, size)
+        if result.inconsistent:
+            result = LinearProgrammingProblemSolver.findNormalizedOptimalValues(result.array, size)
         return result
 
 
@@ -51,7 +51,7 @@ class ConjunctInconsistencyChecker(InconsistencyChecker):
     @staticmethod
     def isInconsistent(knowledgePattern):
         size = knowledgePattern.size
-        matrix = MatrixProducer.getConjunctToQuantMatrix(int(math.log(size, 2)))
+        matrix = MatrixProducer.getConjunctsToQuantsMatrix(int(math.log(size, 2)))
         intervals = knowledgePattern.array
         return LinearProgrammingProblemSolver.findOptimalValues(matrix, intervals, size)
 
@@ -60,37 +60,37 @@ class DisjunctInconsistencyChecker(InconsistencyChecker):
     @staticmethod
     def isInconsistent(knowledgePattern):
         size = knowledgePattern.size
-        matrix = MatrixProducer.getDisjunctToQuantMatrix(int(math.log(size, 2)))
+        matrix = MatrixProducer.getDisjunctsToQuantsMatrix(int(math.log(size, 2)))
         intervals = knowledgePattern.array
         return LinearProgrammingProblemSolver.findOptimalValues(matrix, intervals, size)
 
 
 class MatrixProducer:
     @staticmethod
-    def getDisjunctToQuantMatrix(n):
-        return np.linalg.inv(MatrixProducer.getQuantToDisjunctMatrix(n))
+    def getDisjunctsToQuantsMatrix(n):
+        return np.linalg.inv(MatrixProducer.getQuantsToDisjunctsMatrix(n))
 
     @staticmethod
-    def getQuantToDisjunctMatrix(n):
+    def getQuantsToDisjunctsMatrix(n):
         if n == 0:
             return np.array([1], dtype=np.double)
         elif n == 1:
             return np.array([[1, 1], [0, 1]], dtype=np.double)
         else:
-            k = MatrixProducer.getQuantToDisjunctMatrix(n - 1)
+            k = MatrixProducer.getQuantsToDisjunctsMatrix(n - 1)
             i = np.ones((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
             k_o = k.copy()
             k_o[0] = [0] * 2 ** (n - 1)
             return np.block([[k, k], [k_o, i]])
 
     @staticmethod
-    def getConjunctToQuantMatrix(n):
+    def getConjunctsToQuantsMatrix(n):
         if n == 0:
             return np.array([1], dtype=np.double)
         elif n == 1:
             return np.array([[1, -1], [0, 1]], dtype=np.double)
         else:
-            i = MatrixProducer.getConjunctToQuantMatrix(n - 1)
+            i = MatrixProducer.getConjunctsToQuantsMatrix(n - 1)
             o = np.zeros((2 ** (n - 1), 2 ** (n - 1)), dtype=np.double)
             return np.block([[i, (-1) * i], [o, i]])
 
@@ -125,6 +125,7 @@ class LinearProgrammingProblemSolver:
 
     @staticmethod
     def optimizeForMatrices(a, b, c, size, intervals):
+        solvers.options['show_progress'] = False
         _intervals = intervals.copy()
         for i in range(size):
             c[i] = 1
@@ -160,8 +161,7 @@ class InconsistencyResult:
 
 
 class KnowledgePatternItem:
-    def __init__(self, array, type):
-        self._type = type
+    def __init__(self, array):
         self._arr = array
 
     @property
@@ -181,6 +181,7 @@ class KnowledgePatternItem:
 
 
 class QuantKnowledgePatternItem(KnowledgePatternItem):
+    _type = KnowledgePatternType.QUANTS
 
     @property
     def type(self):
@@ -199,6 +200,8 @@ class QuantKnowledgePatternItem(KnowledgePatternItem):
 
 
 class DisjunctKnowledgePatternItem(KnowledgePatternItem):
+    _type = KnowledgePatternType.DISJUNCTS
+
     @property
     def type(self):
         return self._type
@@ -216,6 +219,8 @@ class DisjunctKnowledgePatternItem(KnowledgePatternItem):
 
 
 class ConjunctKnowledgePatternItem(KnowledgePatternItem):
+    _type = KnowledgePatternType.CONJUNCTS
+
     @property
     def type(self):
         return self._type
