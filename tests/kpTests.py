@@ -4,8 +4,6 @@ import numpy as np
 
 from abslib.kp import KnowledgePatternManager, DisjunctKnowledgePatternItem, MatrixProducer
 
-print(repr(MatrixProducer.getQuantsToDisjunctsMatrix(3)))
-
 
 # Tests for knowledge pattern part of abslib
 class KnowledgePatternManagerTest(unittest.TestCase):
