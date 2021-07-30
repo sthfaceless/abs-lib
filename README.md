@@ -1,10 +1,8 @@
-# abs-lib <div style="font-size:20px">`1.0.2`</div>
+# abs-lib
 
-### Python library for working with algebraic bayesian networks
+#### Python library for working with algebraic bayesian networks
 
-## Project link
-
-[Link](https://test.pypi.org/project/abslib/1.0.1/)
+## Python library [link](https://test.pypi.org/project/abslib/1.0.2/)
 
 ## Build instructions
 
