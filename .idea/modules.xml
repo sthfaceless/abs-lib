@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/ABW.iml" filepath="$PROJECT_DIR$/.idea/ABW.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/abs-lib.iml" filepath="$PROJECT_DIR$/.idea/abs-lib.iml" />
     </modules>
   </component>
 </project>
