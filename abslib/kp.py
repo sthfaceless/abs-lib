@@ -6,11 +6,13 @@ from cvxopt import matrix, solvers
 
 
 class KnowledgePatternManager:
-    def checkInconsistency(self, knowledgePattern):
-        return self.__getInconsistencyChecker(knowledgePattern.type) \
+    @staticmethod
+    def checkInconsistency(knowledgePattern):
+        return KnowledgePatternManager.__getInconsistencyChecker(knowledgePattern.type) \
             .isInconsistent(knowledgePattern)
 
-    def __getInconsistencyChecker(self, type):
+    @staticmethod
+    def __getInconsistencyChecker(type):
         if type == KnowledgePatternType.QUANTS:
             return QuantInconsistencyChecker()
         elif type == KnowledgePatternType.DISJUNCTS:

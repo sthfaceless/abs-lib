@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='abslib',
-    version='1.0.0',
+    version='1.0.1',
     description='Library for working with algebraic bayesian networks',
     license='MIT',
     packages=['abslib'],
