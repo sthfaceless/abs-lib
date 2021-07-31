@@ -40,10 +40,11 @@ class QuantInconsistencyChecker(InconsistencyChecker):
     def isInconsistent(knowledgePattern):
         size = knowledgePattern.size
         matrix = MatrixProducer.getIdentityMatrix(size)
-        intervals = knowledgePattern.array
+        intervals = np.array(knowledgePattern.array, dtype=np.double)
         result = LinearProgrammingProblemSolver.findOptimalValues(matrix, intervals, size)
         if result.inconsistent:
-            result = LinearProgrammingProblemSolver.findNormalizedOptimalValues(result.array, size)
+            result = LinearProgrammingProblemSolver.findNormalizedOptimalValues(np.array(result.array, dtype=np.double),
+                                                                                size)
         return result
 
 
@@ -52,7 +53,7 @@ class ConjunctInconsistencyChecker(InconsistencyChecker):
     def isInconsistent(knowledgePattern):
         size = knowledgePattern.size
         matrix = MatrixProducer.getConjunctsToQuantsMatrix(int(math.log(size, 2)))
-        intervals = knowledgePattern.array
+        intervals = np.array(knowledgePattern.array, dtype=np.double)
         return LinearProgrammingProblemSolver.findOptimalValues(matrix, intervals, size)
 
 
@@ -61,7 +62,7 @@ class DisjunctInconsistencyChecker(InconsistencyChecker):
     def isInconsistent(knowledgePattern):
         size = knowledgePattern.size
         matrix = MatrixProducer.getDisjunctsToQuantsMatrix(int(math.log(size, 2)))
-        intervals = knowledgePattern.array
+        intervals = np.array(knowledgePattern.array, dtype=np.double)
         return LinearProgrammingProblemSolver.findOptimalValues(matrix, intervals, size)
 
 
@@ -140,7 +141,7 @@ class LinearProgrammingProblemSolver:
                 return InconsistencyResult(False, [])
             _intervals[i][1] = round(sol['x'][i], 3)
             c[i] = 0
-        return InconsistencyResult(True, _intervals)
+        return InconsistencyResult(True, _intervals.tolist())
 
 
 class InconsistencyResult:

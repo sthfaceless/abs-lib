@@ -2,7 +2,7 @@
 
 #### Python library for working with algebraic bayesian networks
 
-## Python library [link](https://test.pypi.org/project/abslib/1.0.2/)
+## Python library [link](https://test.pypi.org/project/abslib/1.0.3/)
 
 ## Build instructions
 
@@ -14,4 +14,4 @@
 
 ## Installation script
 
-`pip install -i https://test.pypi.org/simple/ abslib==1.0.2`
+`pip install -i https://test.pypi.org/simple/ abslib==1.0.3`
