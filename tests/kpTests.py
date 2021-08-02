@@ -65,7 +65,7 @@ class KnowledgePatternManagerTest(unittest.TestCase):
     def testConjunctsInconsistent(self):
         arrays = [[[1, 1], [0.1, 0.2], [0.2, 0.4], [0.8, 0.8]]]
         for conjunct_intervals_consistent in arrays:
-            knowledgePattern = DisjunctKnowledgePatternItem(conjunct_intervals_inconsistent)
+            knowledgePattern = DisjunctKnowledgePatternItem(conjunct_intervals_consistent)
             result = KnowledgePatternManager.checkConsistency(knowledgePattern)
             self.assertFalse(result.consistent, "False positive consistency result")
 
